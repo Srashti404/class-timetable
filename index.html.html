@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timetable — class schedule builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F5F6F0;
+    --paper-line:#DCDFD3;
+    --ink:#20291F;
+    --ink-soft:#5B6355;
+    --stamp:#B23A2E;
+    --stamp-soft:#E7D9D2;
+    --ring:#AEB4A4;
+    --card:#FFFFFF;
+    --shadow:0 1px 0 rgba(32,41,31,0.08);
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    background-image:
+      linear-gradient(var(--paper-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--paper-line) 1px, transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    padding-left:34px;
+  }
+  .rings{
+    position:fixed;
+    top:0; left:0; bottom:0;
+    width:34px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:26px;
+    padding-top:40px;
+    z-index:5;
+    pointer-events:none;
+  }
+  .rings::before{
+    content:'';
+    position:absolute;
+    top:0; bottom:0; left:16px;
+    width:1px;
+    background:var(--paper-line);
+  }
+  .ring-dot{
+    width:14px; height:14px;
+    border-radius:50%;
+    background:var(--paper);
+    border:2px solid var(--ring);
+    box-shadow: inset 0 0 0 3px var(--paper);
+  }
+  header{
+    padding:38px 28px 20px 30px;
+    border-bottom:2px solid var(--ink);
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  header h1{
+    font-family:'Special Elite', monospace;
+    font-size:30px;
+    font-weight:400;
+    letter-spacing:0.5px;
+    margin:0;
+    color:var(--ink);
+  }
+  header .stamp{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--stamp);
+    border:1.5px solid var(--stamp);
+    border-radius:4px;
+    padding:4px 9px;
+    transform:rotate(-2deg);
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+  }
+  main{
+    max-width:1240px;
+    margin:0 auto;
+    padding:26px 28px 70px 22px;
+    display:grid;
+    grid-template-columns:320px 1fr;
+    gap:26px;
+    align-items:start;
+  }
+  @media (max-width:880px){
+    main{grid-template-columns:1fr;}
+  }
+  .panel{
+    background:var(--card);
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:18px 18px 20px;
+    margin-bottom:18px;
+  }
+  .panel h2{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:1.2px;
+    color:var(--ink-soft);
+    margin:0 0 12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .panel h2::after{
+    content:'';
+    flex:1;
+    height:1px;
+    background:var(--paper-line);
+  }
+  label{
+    font-size:12px;
+    color:var(--ink-soft);
+    display:block;
+    margin-bottom:4px;
+  }
+  input[type=text], input[type=time], input[type=number], select{
+    width:100%;
+    font-family:'Inter', sans-serif;
+    font-size:13.5px;
+    padding:7px 9px;
+    border:1px solid var(--paper-line);
+    border-radius:6px;
+    background:#FCFCF9;
+    color:var(--ink);
+  }
+  input:focus, select:focus{
+    outline:none;
+    border-color:var(--stamp);
+  }
+  .day-toggles{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .day-chip{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    padding:6px 10px;
+    border:1px solid var(--paper-line);
+    border-radius:20px;
+    cursor:pointer;
+    user-select:none;
+    background:#FCFCF9;
+    color:var(--ink-soft);
+  }
+  .day-chip.on{
+    background:var(--ink);
+    border-color:var(--ink);
+    color:var(--paper);
+  }
+  .row{display:flex; gap:8px; margin-bottom:8px; align-items:flex-end;}
+  .row > div{flex:1;}
+  .btn{
+    font-family:'Inter', sans-serif;
+    font-size:13px;
+    font-weight:500;
+    padding:8px 13px;
+    border-radius:7px;
+    border:1px solid var(--ink);
+    background:var(--ink);
+    color:var(--paper);
+    cursor:pointer;
+  }
+  .btn:hover{opacity:0.88;}
+  .btn.secondary{
+    background:transparent;
+    color:var(--ink);
+    border:1px solid var(--paper-line);
+  }
+  .btn.danger{
+    background:transparent;
+    color:var(--stamp);
+    border:1px solid var(--stamp-soft);
+  }
+  .btn.block{width:100%;}
+  .btn.small{padding:5px 9px; font-size:12px;}
+  .list-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 0;
+    border-bottom:1px dashed var(--paper-line);
+  }
+  .list-item:last-child{border-bottom:none;}
+  .swatch{
+    width:14px; height:14px;
+    border-radius:3px;
+    flex-shrink:0;
+  }
+  .list-item .meta{flex:1; min-width:0;}
+  .list-item .meta .name{font-size:13.5px; font-weight:500;}
+  .list-item .meta .sub{font-size:11.5px; color:var(--ink-soft);}
+  .icon-btn{
+    background:none;
+    border:none;
+    color:var(--ink-soft);
+    cursor:pointer;
+    font-size:15px;
+    padding:2px 5px;
+  }
+  .icon-btn:hover{color:var(--stamp);}
+  .empty-hint{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    font-style:italic;
+    padding:6px 0;
+  }
+  .actions-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;}
+  .grid-wrap{
+    background:var(--card);
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:18px;
+    overflow-x:auto;
+  }
+  .grid-title{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:14px;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .grid-title input{
+    font-family:'Special Elite', monospace;
+    font-size:19px;
+    border:none;
+    background:transparent;
+    padding:2px 0;
+    width:auto;
+    min-width:180px;
+  }
+  .grid-title input:focus{border-bottom:1.5px solid var(--stamp);}
+  table.tt{
+    border-collapse:collapse;
+    width:100%;
+    min-width:640px;
+  }
+  table.tt th, table.tt td{
+    border:1px solid var(--paper-line);
+    text-align:center;
+    vertical-align:middle;
+    padding:0;
+  }
+  table.tt th{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    color:var(--ink-soft);
+    background:#FBFBF7;
+    padding:9px 6px;
+  }
+  table.tt td.period-col{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    background:#FBFBF7;
+    padding:8px 6px;
+    white-space:nowrap;
+    width:92px;
+  }
+  table.tt td.break-row{
+    background:repeating-linear-gradient(45deg, #F0EFE7, #F0EFE7 6px, #E9E8DE 6px, #E9E8DE 12px);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    letter-spacing:0.5px;
+  }
+  .cell{
+    height:58px;
+    cursor:pointer;
+    position:relative;
+    transition:filter 0.1s;
+  }
+  .cell:hover{filter:brightness(0.97);}
+  .cell .mark{
+    position:absolute;
+    inset:5px;
+    border-radius:5px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    transform:rotate(-0.6deg);
+  }
+  .cell:nth-child(3n) .mark{transform:rotate(0.7deg);}
+  .cell .mark .sname{font-size:12.5px; font-weight:600; line-height:1.15;}
+  .cell .mark .steacher{font-size:10px; opacity:0.8; margin-top:1px;}
+  .cell.empty::after{
+    content:'+';
+    color:#C9CCC0;
+    font-size:15px;
+  }
+  .popover{
+    position:fixed;
+    z-index:50;
+    background:var(--card);
+    border:1px solid var(--paper-line);
+    border-radius:9px;
+    box-shadow:0 6px 20px rgba(0,0,0,0.14);
+    padding:8px;
+    min-width:190px;
+    max-height:260px;
+    overflow-y:auto;
+  }
+  .popover .opt{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:7px 8px;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:13px;
+  }
+  .popover .opt:hover{background:#F3F3EE;}
+  .popover .opt .swatch{width:12px; height:12px;}
+  .popover .clear{
+    color:var(--stamp);
+    border-top:1px dashed var(--paper-line);
+    margin-top:4px;
+    padding-top:8px;
+  }
+  .toast{
+    position:fixed;
+    bottom:22px; left:50%;
+    transform:translateX(-50%);
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    padding:9px 16px;
+    border-radius:20px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.25s;
+    z-index:60;
+  }
+  .toast.show{opacity:1;}
+  @media print{
+    .rings, header .stamp, .panel, .actions-row, .toast{display:none !important;}
+    body{padding-left:0; background:white;}
+    header{border-bottom:2px solid #000;}
+    main{grid-template-columns:1fr; padding:0;}
+    .grid-wrap{box-shadow:none; border:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="rings" aria-hidden="true">
+  <div class="ring-dot"></div><div class="ring-dot"></div><div class="ring-dot"></div>
+  <div class="ring-dot"></div><div class="ring-dot"></div><div class="ring-dot"></div>
+  <div class="ring-dot"></div><div class="ring-dot"></div><div class="ring-dot"></div>
+</div>
+
+<header>
+  <h1>Timetable</h1>
+  <span class="stamp">class schedule builder</span>
+</header>
+
+<main>
+  <div class="setup">
+
+    <div class="panel">
+      <h2>Days</h2>
+      <div class="day-toggles" id="dayToggles"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Periods</h2>
+      <div id="periodList"></div>
+      <div class="row" style="margin-top:10px;">
+        <div><label>Start</label><input type="time" id="pStart" value="09:00"></div>
+        <div><label>End</label><input type="time" id="pEnd" value="09:45"></div>
+      </div>
+      <div class="row">
+        <div style="flex:2;"><label>Label</label><input type="text" id="pLabel" placeholder="e.g. Period 1 or Lunch"></div>
+        <div style="flex:0 0 auto;"><label>&nbsp;</label>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; white-space:nowrap; padding:7px 0;">
+            <input type="checkbox" id="pBreak" style="width:auto;"> break
+          </label>
+        </div>
+      </div>
+      <button class="btn block" id="addPeriod">Add period</button>
+    </div>
+
+    <div class="panel">
+      <h2>Subjects</h2>
+      <div id="subjectList"></div>
+      <div class="row" style="margin-top:10px;">
+        <div><label>Subject name</label><input type="text" id="sName" placeholder="e.g. Mathematics"></div>
+      </div>
+      <div class="row">
+        <div><label>Teacher (optional)</label><input type="text" id="sTeacher" placeholder="e.g. Mr. Rao"></div>
+        <div style="flex:0 0 90px;"><label>Per week</label><input type="number" id="sWeekly" min="1" max="20" value="4"></div>
+      </div>
+      <button class="btn block" id="addSubject">Add subject</button>
+    </div>
+
+    <div class="panel">
+      <h2>Build</h2>
+      <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 10px;">Auto-fill spreads each subject's weekly classes across the week, avoiding repeats on the same day where possible. Click any cell in the grid to assign or clear it by hand.</p>
+      <div class="actions-row">
+        <button class="btn block" id="autoGen">Auto-generate</button>
+      </div>
+      <div class="actions-row">
+        <button class="btn secondary" id="clearGrid">Clear grid</button>
+        <button class="btn secondary" id="printBtn">Print</button>
+      </div>
+      <div class="actions-row">
+        <button class="btn danger" id="resetAll">Reset everything</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-wrap">
+    <div class="grid-title">
+      <input type="text" id="ttTitle" value="My class timetable" placeholder="Timetable title">
+    </div>
+    <div id="gridHost"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PALETTE = [
+  {bg:'#FCE9A8', text:'#6B5406'},
+  {bg:'#AFE0EE', text:'#0A4C5C'},
+  {bg:'#C3E8C0', text:'#265E20'},
+  {bg:'#F4C3BE', text:'#7A2A22'},
+  {bg:'#D8C7F2', text:'#4C2E82'},
+  {bg:'#F6CFA0', text:'#7A4408'},
+  {bg:'#B9E4D8', text:'#0F5C48'},
+  {bg:'#F2BFD3', text:'#7D2A48'}
+];
+const ALL_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+let state = {
+  title: 'My class timetable',
+  days: ['Mon','Tue','Wed','Thu','Fri'],
+  periods: [
+    {id:'p1', label:'Period 1', start:'09:00', end:'09:45', isBreak:false},
+    {id:'p2', label:'Period 2', start:'09:45', end:'10:30', isBreak:false},
+    {id:'p3', label:'Period 3', start:'10:30', end:'11:15', isBreak:false},
+    {id:'p4', label:'Recess', start:'11:15', end:'11:35', isBreak:true},
+    {id:'p5', label:'Period 4', start:'11:35', end:'12:20', isBreak:false},
+    {id:'p6', label:'Period 5', start:'12:20', end:'13:05', isBreak:false},
+    {id:'p7', label:'Period 6', start:'13:05', end:'13:50', isBreak:false}
+  ],
+  subjects: [
+    {id:'s1', name:'Mathematics', teacher:'', weekly:5, color:0},
+    {id:'s2', name:'English', teacher:'', weekly:4, color:1},
+    {id:'s3', name:'Science', teacher:'', weekly:4, color:2}
+  ],
+  schedule: {},
+  nextPeriod: 8,
+  nextSubject: 4
+};
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem('timetable-state');
+    if(raw){
+      const parsed = JSON.parse(raw);
+      state = Object.assign(state, parsed);
+    }
+  }catch(e){}
+  render();
+}
+
+function saveState(){
+  try{
+    localStorage.setItem('timetable-state', JSON.stringify(state));
+  }catch(e){}
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._h);
+  showToast._h = setTimeout(()=>t.classList.remove('show'), 1600);
+}
+
+function cellKey(day, periodId){ return day + '|' + periodId; }
+
+function renderDayToggles(){
+  const host = document.getElementById('dayToggles');
+  host.innerHTML = '';
+  ALL_DAYS.forEach(d=>{
+    const on = state.days.includes(d);
+    const chip = document.createElement('div');
+    chip.className = 'day-chip' + (on ? ' on' : '');
+    chip.textContent = d;
+    chip.onclick = ()=>{
+      if(state.days.includes(d)){
+        state.days = state.days.filter(x=>x!==d);
+      }else{
+        state.days.push(d);
+        state.days.sort((a,b)=>ALL_DAYS.indexOf(a)-ALL_DAYS.indexOf(b));
+      }
+      saveState(); render();
+    };
+    host.appendChild(chip);
+  });
+}
+
+function renderPeriodList(){
+  const host = document.getElementById('periodList');
+  host.innerHTML = '';
+  if(state.periods.length===0){
+    host.innerHTML = '<div class="empty-hint">No periods yet. Add one below.</div>';
+    return;
+  }
+  state.periods.forEach(p=>{
+    const item = document.createElement('div');
+    item.className = 'list-item';
+    item.innerHTML = `
+      <div class="meta">
+        <div class="name">${escapeHtml(p.label)}${p.isBreak ? ' · break' : ''}</div>
+        <div class="sub">${p.start} – ${p.end}</div>
+      </div>
+      <button class="icon-btn" title="Delete">✕</button>
+    `;
+    item.querySelector('.icon-btn').onclick = ()=>{
+      state.periods = state.periods.filter(x=>x.id!==p.id);
+      Object.keys(state.schedule).forEach(k=>{ if(k.endsWith('|'+p.id)) delete state.schedule[k]; });
+      saveState(); render();
+    };
+    host.appendChild(item);
+  });
+}
+
+function renderSubjectList(){
+  const host = document.getElementById('subjectList');
+  host.innerHTML = '';
+  if(state.subjects.length===0){
+    host.innerHTML = '<div class="empty-hint">No subjects yet. Add one below.</div>';
+    return;
+  }
+  state.subjects.forEach(s=>{
+    const c = PALETTE[s.color % PALETTE.length];
+    const item = document.createElement('div');
+    item.className = 'list-item';
+    item.innerHTML = `
+      <div class="swatch" style="background:${c.bg}"></div>
+      <div class="meta">
+        <div class="name">${escapeHtml(s.name)}</div>
+        <div class="sub">${s.teacher ? escapeHtml(s.teacher)+' · ' : ''}${s.weekly}/week</div>
+      </div>
+      <button class="icon-btn" title="Delete">✕</button>
+    `;
+    item.querySelector('.icon-btn').onclick = ()=>{
+      state.subjects = state.subjects.filter(x=>x.id!==s.id);
+      Object.keys(state.schedule).forEach(k=>{ if(state.schedule[k]===s.id) delete state.schedule[k]; });
+      saveState(); render();
+    };
+    host.appendChild(item);
+  });
+}
+
+function renderGrid(){
+  const host = document.getElementById('gridHost');
+  if(state.days.length===0 || state.periods.length===0){
+    host.innerHTML = '<p class="empty-hint">Pick at least one day and add a period to see the grid.</p>';
+    return;
+  }
+  let html = '<table class="tt"><thead><tr><th>Time</th>';
+  state.days.forEach(d=> html += `<th>${d}</th>`);
+  html += '</tr></thead><tbody>';
+  state.periods.forEach(p=>{
+    html += `<tr><td class="period-col">${p.label}<br>${p.start}–${p.end}</td>`;
+    if(p.isBreak){
+      html += `<td class="break-row" colspan="${state.days.length}">${escapeHtml(p.label)}</td>`;
+    }else{
+      state.days.forEach(d=>{
+        const key = cellKey(d, p.id);
+        const subId = state.schedule[key];
+        const subject = state.subjects.find(s=>s.id===subId);
+        if(subject){
+          const c = PALETTE[subject.color % PALETTE.length];
+          html += `<td class="cell" data-day="${d}" data-period="${p.id}">
+            <div class="mark" style="background:${c.bg}; color:${c.text}">
+              <span class="sname">${escapeHtml(subject.name)}</span>
+              ${subject.teacher ? `<span class="steacher">${escapeHtml(subject.teacher)}</span>` : ''}
+            </div>
+          </td>`;
+        }else{
+          html += `<td class="cell empty" data-day="${d}" data-period="${p.id}"></td>`;
+        }
+      });
+    }
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  host.innerHTML = html;
+
+  host.querySelectorAll('.cell').forEach(cell=>{
+    cell.onclick = (e)=> openPopover(e.currentTarget);
+  });
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+let activePopover = null;
+function closePopover(){
+  if(activePopover){ activePopover.remove(); activePopover = null; }
+  document.removeEventListener('click', outsideClick, true);
+}
+function outsideClick(e){
+  if(activePopover && !activePopover.contains(e.target)){
+    closePopover();
+  }
+}
+function openPopover(cellEl){
+  closePopover();
+  const day = cellEl.dataset.day, periodId = cellEl.dataset.period;
+  const pop = document.createElement('div');
+  pop.className = 'popover';
+  if(state.subjects.length===0){
+    pop.innerHTML = '<div class="empty-hint">Add a subject first.</div>';
+  }else{
+    state.subjects.forEach(s=>{
+      const c = PALETTE[s.color % PALETTE.length];
+      const opt = document.createElement('div');
+      opt.className = 'opt';
+      opt.innerHTML = `<span class="swatch" style="background:${c.bg}"></span> ${escapeHtml(s.name)}`;
+      opt.onclick = ()=>{
+        state.schedule[cellKey(day, periodId)] = s.id;
+        saveState(); render(); closePopover();
+      };
+      pop.appendChild(opt);
+    });
+    const clear = document.createElement('div');
+    clear.className = 'opt clear';
+    clear.textContent = 'Clear cell';
+    clear.onclick = ()=>{
+      delete state.schedule[cellKey(day, periodId)];
+      saveState(); render(); closePopover();
+    };
+    pop.appendChild(clear);
+  }
+  document.body.appendChild(pop);
+  const r = cellEl.getBoundingClientRect();
+  const popW = 200;
+  let left = r.left;
+  if(left + popW > window.innerWidth - 10) left = window.innerWidth - popW - 10;
+  pop.style.left = left + 'px';
+  pop.style.top = (r.bottom + 6) + 'px';
+  activePopover = pop;
+  setTimeout(()=> document.addEventListener('click', outsideClick, true), 0);
+}
+
+function autoGenerate(){
+  if(state.subjects.length===0){ showToast('Add subjects first'); return; }
+  const workingPeriods = state.periods.filter(p=>!p.isBreak);
+  if(workingPeriods.length===0 || state.days.length===0){ showToast('Add days and periods first'); return; }
+
+  const totalSlots = workingPeriods.length * state.days.length;
+  const requested = state.subjects.reduce((a,s)=>a+s.weekly,0);
+  state.schedule = {};
+
+  const dayCount = {};
+  state.subjects.forEach(s=> dayCount[s.id] = {});
+  state.days.forEach(d=> state.subjects.forEach(s=> dayCount[s.id][d]=0));
+
+  const slots = [];
+  workingPeriods.forEach(p=> state.days.forEach(d=> slots.push({day:d, periodId:p.id})));
+
+  const order = [...state.subjects].sort((a,b)=>b.weekly-a.weekly);
+  order.forEach(subject=>{
+    let need = subject.weekly;
+    let guard = 0;
+    while(need > 0 && guard < 500){
+      guard++;
+      let best = null, bestScore = Infinity;
+      for(const slot of slots){
+        const key = cellKey(slot.day, slot.periodId);
+        if(state.schedule[key]) continue;
+        const score = dayCount[subject.id][slot.day];
+        if(score < bestScore){ bestScore = score; best = slot; if(score===0) break; }
+      }
+      if(!best) break;
+      state.schedule[cellKey(best.day, best.periodId)] = subject.id;
+      dayCount[subject.id][best.day]++;
+      need--;
+    }
+  });
+
+  saveState(); render();
+  if(requested > totalSlots){
+    showToast(`Filled all ${totalSlots} slots — requested ${requested}, some classes didn't fit`);
+  }else{
+    showToast('Timetable generated');
+  }
+}
+
+function render(){
+  renderDayToggles();
+  renderPeriodList();
+  renderSubjectList();
+  renderGrid();
+  document.getElementById('ttTitle').value = state.title;
+}
+
+document.getElementById('addPeriod').onclick = ()=>{
+  const start = document.getElementById('pStart').value;
+  const end = document.getElementById('pEnd').value;
+  const isBreak = document.getElementById('pBreak').checked;
+  let label = document.getElementById('pLabel').value.trim();
+  if(!start || !end){ showToast('Set a start and end time'); return; }
+  if(!label){ label = isBreak ? 'Break' : `Period ${state.periods.filter(p=>!p.isBreak).length+1}`; }
+  state.periods.push({id:'p'+state.nextPeriod, label, start, end, isBreak});
+  state.nextPeriod++;
+  document.getElementById('pLabel').value = '';
+  document.getElementById('pBreak').checked = false;
+  saveState(); render();
+};
+
+document.getElementById('addSubject').onclick = ()=>{
+  const name = document.getElementById('sName').value.trim();
+  const teacher = document.getElementById('sTeacher').value.trim();
+  const weekly = parseInt(document.getElementById('sWeekly').value, 10) || 1;
+  if(!name){ showToast('Give the subject a name'); return; }
+  state.subjects.push({id:'s'+state.nextSubject, name, teacher, weekly, color: state.subjects.length});
+  state.nextSubject++;
+  document.getElementById('sName').value = '';
+  document.getElementById('sTeacher').value = '';
+  document.getElementById('sWeekly').value = 4;
+  saveState(); render();
+};
+
+document.getElementById('autoGen').onclick = autoGenerate;
+document.getElementById('clearGrid').onclick = ()=>{
+  state.schedule = {};
+  saveState(); render();
+  showToast('Grid cleared');
+};
+document.getElementById('printBtn').onclick = ()=> window.print();
+document.getElementById('resetAll').onclick = ()=>{
+  if(!confirm('Reset everything? This clears days, periods, subjects and the grid.')) return;
+  state = {
+    title: 'My class timetable',
+    days: ['Mon','Tue','Wed','Thu','Fri'],
+    periods: [],
+    subjects: [],
+    schedule: {},
+    nextPeriod: 1,
+    nextSubject: 1
+  };
+  saveState(); render();
+};
+document.getElementById('ttTitle').addEventListener('change', (e)=>{
+  state.title = e.target.value;
+  saveState();
+});
+
+loadState();
+</script>
+</body>
+</html>
